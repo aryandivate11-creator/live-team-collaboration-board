@@ -4,6 +4,19 @@ import ApiResponse from "../utils/ApiResponse.js";
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
+const generateAccessandRefershToken = async (userId) =>{
+    const user =  await User.findById(userId);
+
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+
+    await user.save({validateBeforeSave : false});
+
+    return {accessToken , refreshToken};
+};
+
 export const registerUser = asyncHandler(async (req, res) =>{
     const {name , email , phone , password} = req.body
 
@@ -44,11 +57,27 @@ export const registerUser = asyncHandler(async (req, res) =>{
         password,
         phone
     });
+    
+    const {accessToken , refreshToken} = await generateAccessandRefershToken(user._id);
 
-    const createdUser = await User.findById(user._id).select("-password");
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
+    
+    const options = {
+        httpOnly: true,
+        secure: false
+    };
 
-    return res.status(201).json(
-        new ApiResponse(201,createdUser,"User registered successfully")
+    return res
+    .status(201)
+    .cookie("refreshToken",refreshToken,options)
+    .json(
+        new ApiResponse(
+            201,
+            {
+                user : createdUser,
+                accessToken
+            },
+            "User registered successfully")
     );
 });
 
@@ -67,11 +96,7 @@ export const loginUser = asyncHandler(async (req,res) =>{
         throw new ApiError(401,"Invalid Credentials")
     };
 
-    const accessToken =  user.generateAccessToken();
-    const refreshToken =  user.generateRefreshToken();
-    
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave:false });
+    const {accessToken , refreshToken} = await generateAccessandRefershToken(user._id);
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
     
@@ -84,10 +109,13 @@ export const loginUser = asyncHandler(async (req,res) =>{
     .status(200)
     .cookie("refreshToken",refreshToken,options)
     .json(
-        new ApiResponse(200,{
+        new ApiResponse(
+            200,
+        {
             user:loggedInUser,
             accessToken
-        },"User logged in successfully")
+        },
+        "User logged in successfully")
     );
 });
 
@@ -123,4 +151,34 @@ export const refreshAccessToken = asyncHandler(async (req,res) =>{
     } catch (error) {
          throw new ApiError(401,"Invalid Refresh Token")
     }
-})
+});
+
+export const logoutUser = asyncHandler(async (req,res)=>{
+
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if(!token){
+        throw new ApiError(401 , "Unauthorized")
+    };
+
+    const decoded = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET);
+
+    const userId = decoded._id;
+
+    await User.findByIdAndUpdate(
+        userId,
+        {
+            $unset : {refreshToken : 1}
+        }
+    );
+
+    const options = {
+        httponly : true,
+        secure : false
+    };
+
+    return res
+    .status(200)
+    .clearCookie("refreshToken",options)
+    .json(new ApiResponse(200 , {}, "User logged out successfully"));
+});
