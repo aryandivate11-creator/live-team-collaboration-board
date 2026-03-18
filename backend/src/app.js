@@ -13,15 +13,4 @@ app.get("/health", (req, res) => {
   res.json({ status: "Server is running" });
 });
 
-app.get("/test-user",async (req,res) =>{
-      const user = await User.create({
-        name: "Test User",
-        email: "test@edu.in",
-        password: "123456"
-      });
-
-      res.json(user);
-      
-});
-
 app.use(errorHandler);
