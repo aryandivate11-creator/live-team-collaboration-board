@@ -2,6 +2,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import Board from "../models/board.model.js";
+import List from "../models/list.model.js";
+import Card from "../models/card.model.js";
 
 export const createBoard = asyncHandler(async (req, res) => {
 
@@ -73,6 +75,14 @@ export const deleteBoard = asyncHandler(async(req,res) =>{
     if(board.owner.toString() !== req.user._id.toString()){
         throw new ApiError(403,"Only owner can delete this boaard");
     };
+    
+    const lists = await List.find({ board : boardId });
+    
+    const listIds = lists.map(list=> list._id);
+
+    await Card.deleteMany({list: { $in: listIds}});
+
+    await List.deleteMany({board :boardId})
 
     await board.deleteOne();
 
@@ -81,4 +91,5 @@ export const deleteBoard = asyncHandler(async(req,res) =>{
     .json(
         new ApiResponse(200,{},"Board deleted successfully")
     )
-})
+});
+

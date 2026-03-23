@@ -3,6 +3,7 @@ import Board from "../models/board.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import Card from "../models/card.model.js";
 
 export const createList = asyncHandler(async (req,res) =>{
     
@@ -46,4 +47,31 @@ export const getLists = asyncHandler(async (req,res) =>{
     return res.status(200).json(
         new ApiResponse(200,lists,"Lists fetched successfully")
     );
-})
+});
+
+export const deleteList = asyncHandler(async(req , res) =>{
+
+    const { listId } = req.params;
+    
+    const list = await List.findById(listId);
+
+    if(!list){
+        throw new ApiError(404,"List not found")
+    };
+
+    await Card.deleteMany({ list : listId});
+
+    await List.updateMany(
+        {
+            board : list.board,
+            position : {$gt: list.position}
+        },
+        { $inc:{ position: -1 } }
+    );
+
+    await list.deleteOne();
+
+    return res.status(200).json(
+        new ApiResponse(200,{},"List deleted successfully")
+    );
+});

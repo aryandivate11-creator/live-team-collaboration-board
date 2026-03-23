@@ -44,12 +44,77 @@ export const moveCard = asyncHandler(async(req,res) =>{
         throw new ApiError(404,"Card not found")
     };
 
+    const sourceList = await List.findById(sourceListId);
+    const destinationList = await List.findById(destinationListId);
+    
+    if (!sourceList || !destinationList) {
+        throw new ApiError(404, "List not found");
+    }
+
+    // ✅ Ensure both lists belong to same board
+    if (sourceList.board.toString() !== destinationList.board.toString()) {
+        throw new ApiError(400, "Cannot move card across different boards");
+    }
+
+    if(sourceListId === destinationListId){
+        await Card.updateMany(
+            {
+                list: sourceListId,
+                position: {$gte:newPosition}
+            },
+            { $inc : {position: 1}}
+        );
+
+    }
+    else{
+        await Card.updateMany(
+            {
+                list: destinationListId,
+                position: { $gte: newPosition }
+            },
+            { $inc: { position: 1 } }
+        );
+
+        await Card.updateMany(
+            {
+                list: sourceListId,
+                position: { $gt: card.position }
+            },
+            { $inc: { position: -1} }
+        );
+    }
+
     card.list = destinationListId;
     card.position = newPosition;
 
-    await card.save;
+    await card.save();
 
     return res.status(200).json(
-        new ApiResponse(200,card,"card moved successfully")
+        new ApiResponse(200, card, "Card moved successfully")
+    );
+});
+
+export const deleteCard = asyncHandler(async(req,res) => {
+
+    const { cardId } = req.params;
+
+    const card = await Card.findById(cardId);
+
+    if(!card){
+        throw new ApiError(404 ,"Card not found")
+    };
+
+    await Card.updateMany(
+        {
+            list: card.list,
+            position: { $gt : card.position}
+        },
+        { $inc : { position : -1 } }
+    );
+    
+    await card.deleteOne();
+
+    return res.status(200).json(
+        new ApiResponse(200,{},"Card deleted successfully")
     );
 });
