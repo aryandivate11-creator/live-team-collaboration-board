@@ -28,7 +28,22 @@ export const createCard = asyncHandler(async (req,res) =>{
         list : listId,
         position : cardCount + 1
     });
-
+    
+    req.app.get("io").to(list.board).emit("card:created",{
+        card: {
+        id: card._id,
+        title: card.title,
+        listId: card.list,
+        position: card.position,
+        assignedUsers: card.assignedUsers
+    },
+    action: "created",
+    user: {
+        id: req.user._id,
+        name: req.user.name
+    },
+    timestamp: Date.now()
+    })
     return res.status(200).json(
         new ApiResponse(201,card,"Card created successfully")
     );
@@ -39,6 +54,8 @@ export const moveCard = asyncHandler(async(req,res) =>{
     const { cardId, sourceListId, destinationListId, newPosition } = req.body;
     
     const card = Card.findById(cardId);
+    
+    const list = List.findById(card.list);
 
     if(!card){
         throw new ApiError(404,"Card not found")
@@ -86,7 +103,26 @@ export const moveCard = asyncHandler(async(req,res) =>{
 
     card.list = destinationListId;
     card.position = newPosition;
-
+    
+    req.app.get("io").to(destinationList.board.toString()).emit("card:moved",{
+        card: {
+        id: card._id
+    },
+    from: {
+        listId: sourceListId,
+        position: card.position
+    },
+    to: {
+        listId: destinationListId,
+        position: newPosition
+    },
+    action: "moved",
+    user: {
+        id: req.user._id,
+        name: req.user.name
+    },
+    timestamp: Date.now()
+})
     await card.save();
 
     return res.status(200).json(
@@ -99,6 +135,8 @@ export const deleteCard = asyncHandler(async(req,res) => {
     const { cardId } = req.params;
 
     const card = await Card.findById(cardId);
+    
+    const list = await List.findById(card.list);
 
     if(!card){
         throw new ApiError(404 ,"Card not found")
@@ -113,6 +151,20 @@ export const deleteCard = asyncHandler(async(req,res) => {
     );
     
     await card.deleteOne();
+    
+    req.app.get("io").to(list.board.toString).emit("card:deleted",{
+        card: {
+        id: card._id,
+        title: card.title,
+        listId: card.list
+    },
+    action: "deleted",
+    user: {
+        id: req.user._id,
+        name: req.user.name
+    },
+    timestamp: Date.now()
+    });
 
     return res.status(200).json(
         new ApiResponse(200,{},"Card deleted successfully")
