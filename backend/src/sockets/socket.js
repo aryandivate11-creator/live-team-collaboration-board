@@ -1,6 +1,6 @@
-import User from "../models/user.model";
+import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
-import Board from "../models/board.model";
+import Board from "../models/board.model.js";
 
 export const initSocket = (io) =>{
 
@@ -31,7 +31,7 @@ export const initSocket = (io) =>{
 
         console.log("User connected :",socket.id);
 
-        socket.on("Join Board", async (boardId) =>{
+        socket.on("joinBoard", async (boardId) =>{
 
             const board = await Board.findById(boardId);
 

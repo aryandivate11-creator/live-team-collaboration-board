@@ -1,6 +1,6 @@
 import { Router } from "express";
 import verifyJWT from "../middlewares/auth.middleware.js";
-import { createCard , moveCard , deleteCard } from "../controllers/card.controller.js";
+import { createCard , moveCard , deleteCard , updateCard} from "../controllers/card.controller.js";
 
 const router = Router();
 
@@ -13,5 +13,7 @@ router.post("/", createCard);
 router.patch("/move", moveCard);
 
 router.delete("/:cardId",deleteCard);
+
+router.patch("/:cardId",  updateCard);
 
 export default router;
