@@ -243,7 +243,8 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
     if (userId === req.user._id.toString()) {
     throw new ApiError(400, "Cannot change your own role");
     };
-    
+    const updatedMember = await User.findById(userId);
+
     member.role = role;
 
     await board.save();
@@ -251,7 +252,8 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
     req.app.get("io").to(boardId).emit("member:roleUpdated",{
        member: {
         user: {
-            id: userId
+            id: userId,
+            name: updatedMember.name
         },
         role: role
     },

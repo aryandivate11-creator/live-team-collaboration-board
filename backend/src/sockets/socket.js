@@ -38,7 +38,7 @@ export const initSocket = (io) =>{
             if(!board) return ;
 
             const isMember = board.members.some(
-                m => m.toString() === socket.user._id.toString()
+                m => m.user.toString() === socket.user._id.toString()
             );
             
             if(!isMember) return;

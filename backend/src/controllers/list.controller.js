@@ -119,7 +119,8 @@ export const deleteList = asyncHandler(async(req , res) =>{
     
     req.app.get("io").to(list.board.toString()).emit("list:deleted", {
         list: {
-            id: list._id
+            id: list._id,
+            title: list.title
         },
         action: "deleted",
         user: {
@@ -144,6 +145,8 @@ export const updateList = asyncHandler(async (req, res) => {
     const list = await List.findById(listId);
 
     if (!list) throw new ApiError(404, "List not found");
+    
+    const oldTitle = list.title;
 
     const board = await Board.findById(list.board);
 
@@ -161,7 +164,8 @@ export const updateList = asyncHandler(async (req, res) => {
     req.app.get("io").to(list.board.toString()).emit("list:updated", {
         list: {
             id: list._id,
-            title: list.title
+            newTitle: list.title,
+            oldTitle: oldTitle
         },
         action: "updated",
         user: {
