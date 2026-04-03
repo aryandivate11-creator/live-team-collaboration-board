@@ -60,7 +60,8 @@ export const getBoardById = asyncHandler(async(req ,res) =>{
 
     const{ boardId } = req.params;
 
-    const board = await Board.findById(boardId);
+    const board = await Board.findById(boardId)
+        .populate("members.user","name email");
 
     if(!board){
         throw new ApiError(404,"Board not found");

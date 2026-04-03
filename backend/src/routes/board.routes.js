@@ -24,4 +24,4 @@ router.post("/:boardId/members",addMember);
 router.patch("/:boardId/members/:userId",updateMemberRole);
 router.delete("/:boardId/members/:userId",removeMember);
 
-export default router 
+export default router ;
