@@ -194,7 +194,7 @@ export const deleteCard = asyncHandler(async(req,res) => {
 
     // ✅ Permission check
     const board = await Board.findById(list.board);
-    const allowed = hasPermission(board, req.user._id, ["owner", "admin"]);
+    const allowed = hasPermission(board, req.user._id, ["owner", "admin", "member"]);
 
     if (!allowed) {
         throw new ApiError(403, "Not allowed to delete card");
@@ -236,9 +236,15 @@ export const updateCard = asyncHandler(async (req, res) => {
     const { cardId } = req.params;
     const { title, description, assignedUsers } = req.body;
     
-    if (!title && !description && !assignedUsers) {
-        throw new ApiError(400, "Nothing to update")
-    };
+    const hasAssign =
+        assignedUsers !== undefined && assignedUsers !== null;
+    if (
+        title === undefined &&
+        description === undefined &&
+        !hasAssign
+    ) {
+        throw new ApiError(400, "Nothing to update");
+    }
 
     const card = await Card.findById(cardId);
     if (!card) throw new ApiError(404, "Card not found");
@@ -253,8 +259,8 @@ export const updateCard = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Not allowed to update card")
     };
 
-    if (title) card.title = title;
-    if (description) card.description = description;
+    if (title !== undefined) card.title = title;
+    if (description !== undefined) card.description = description;
 
     // ✅ Handle assigned users
     let assignedUsersData = [];

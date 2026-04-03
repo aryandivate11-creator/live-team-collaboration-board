@@ -71,13 +71,34 @@ const MainLayout = ({ children }) =>{
           </button>
 
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <NavLink to="/" className={({ isActive }) => isActive ? "text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900"}>
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                isActive
+                  ? "text-gray-900 font-medium"
+                  : "text-gray-600 hover:text-gray-900"
+              }
+            >
               Dashboard
             </NavLink>
-            <NavLink to="/" className="text-gray-600 hover:text-gray-900">
+            <NavLink
+              to="/projects"
+              className={({ isActive }) =>
+                isActive
+                  ? "text-gray-900 font-medium"
+                  : "text-gray-600 hover:text-gray-900"
+              }
+            >
               Projects
             </NavLink>
-            <NavLink to="/members/placeholder" className="text-gray-600 hover:text-gray-900">
+            <NavLink
+              to="/members"
+              className={({ isActive }) =>
+                isActive
+                  ? "text-gray-900 font-medium border-b-2 border-indigo-600 pb-0.5"
+                  : "text-gray-600 hover:text-gray-900"
+              }
+            >
               Members
             </NavLink>
           </nav>

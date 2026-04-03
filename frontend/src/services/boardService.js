@@ -1,6 +1,6 @@
 import { createAPI } from "./http";
 
-const API = createAPI("http://localhost:5000/api/boards");
+const API = createAPI("http://localhost:4000/api/boards");
 
 // ================= GET BOARDS =================
 export const getBoards = async () => {

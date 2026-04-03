@@ -1,13 +1,10 @@
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 const itemBase =
   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100";
 const activeClass = "bg-gray-100 text-gray-900 font-medium";
 
 export default function Sidebar() {
-  const { id } = useParams(); // board id when present
-  const membersHref = id ? `/members/${id}` : "/"; // fallback to dashboard
-
   return (
     <aside className="hidden md:block w-60 flex-shrink-0">
       <div className="sticky top-4 space-y-2">
@@ -29,7 +26,7 @@ export default function Sidebar() {
         <button className={itemBase} type="button">
           <span>Analytics</span>
         </button>
-        <NavLink to={membersHref} className={({ isActive }) => `${itemBase} ${isActive ? activeClass : ""}`}>
+        <NavLink to="/members" className={({ isActive }) => `${itemBase} ${isActive ? activeClass : ""}`}>
           <span>Team</span>
         </NavLink>
         <button className={itemBase} type="button">

@@ -44,7 +44,10 @@ export const createBoard = asyncHandler(async (req, res) => {
 export const getBoards = asyncHandler(async (req,res) =>{
 
     const boards = await Board.find({
-        "members.user": req.user._id   // ✅ FIXED for new schema
+        $or: [
+            { owner: req.user._id },
+            { "members.user": req.user._id }
+        ]
     });
 
     return res

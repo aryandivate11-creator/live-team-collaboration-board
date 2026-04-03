@@ -1,6 +1,19 @@
 import axios from "axios";
 
-const AUTH_BASE = "http://localhost:5000/api/auth";
+const AUTH_BASE = "http://localhost:4000/api/auth";
+
+/** Backend wraps payloads in { statusCode, data, message, success } */
+export function unwrapApiData(res) {
+  if (res == null) return null;
+  if (
+    typeof res === "object" &&
+    "data" in res &&
+    ("statusCode" in res || "success" in res)
+  ) {
+    return res.data;
+  }
+  return res;
+}
 
 export function createAPI(baseURL) {
   const API = axios.create({

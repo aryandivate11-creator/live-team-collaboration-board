@@ -1,6 +1,6 @@
 import { createAPI } from "./http";
 
-const API = createAPI("http://localhost:5000/api/cards");
+const API = createAPI("http://localhost:4000/api/cards");
 
 // ================= GET CARDS =================
 export const getCards = async (listId) => {
