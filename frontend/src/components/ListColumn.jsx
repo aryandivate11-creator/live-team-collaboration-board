@@ -3,11 +3,21 @@ import CardItem from "./CardItem";
 import { deleteCard } from "../services/cardService";
 import { deleteList } from "../services/listService";
 
-export default function ListColumn({ list, onCreateCard, onUpdateCard }) {
+export default function ListColumn({
+  list,
+  onCreateCard,
+  onUpdateCard,
+  boardMembers = [],
+  onAssignMember,
+  onUnassignMember,
+  canDragCards = false,
+  onMoveCard
+}) {
   const [newCardTitle, setNewCardTitle] = useState("");
   const [newCardDescription, setNewCardDescription] = useState("");
   const [adding, setAdding] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -56,7 +66,26 @@ export default function ListColumn({ list, onCreateCard, onUpdateCard }) {
   };
 
   return (
-    <div className="bg-white/60 rounded-2xl p-4 w-80 flex-shrink-0 min-h-[420px] border border-gray-100">
+    <div
+      className={`bg-white/60 rounded-2xl p-4 w-80 flex-shrink-0 min-h-[420px] border ${
+        dragOver ? "border-indigo-400 ring-2 ring-indigo-200" : "border-gray-100"
+      }`}
+      onDragOver={(e) => {
+        if (!canDragCards) return;
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        if (!canDragCards) return;
+        e.preventDefault();
+        setDragOver(false);
+        onMoveCard?.(e, {
+          destinationListId: String(list._id),
+          destinationIndex: (list.cards || []).length
+        });
+      }}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
@@ -98,8 +127,14 @@ export default function ListColumn({ list, onCreateCard, onUpdateCard }) {
           <CardItem
             key={String(card._id || card.id)}
             card={card}
+            listId={list._id}
+            boardMembers={boardMembers}
             onDelete={handleDeleteCard}
             onUpdate={onUpdateCard}
+            onAssignMember={onAssignMember}
+            onUnassignMember={onUnassignMember}
+            canDrag={canDragCards}
+            onDragStartCard={onMoveCard}
           />
         ))}
       </div>

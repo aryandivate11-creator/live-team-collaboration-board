@@ -4,13 +4,13 @@ import ListColumn from "../components/ListColumn";
 import { getLists } from "../services/listService";
 import { createList } from "../services/listService";
 import {connectSocket , getSocket} from "../sockets/socket.js";
-import { getCards , createCard, updateCard } from "../services/cardService";
+import { getCards , createCard, updateCard, unassignUserFromCard, moveCard } from "../services/cardService";
 import { deleteBoard, getBoardById } from "../services/boardService";
 import { useNavigate } from "react-router-dom";
 import { updateBoard } from "../services/boardService";
 import { searchUsers } from "../services/userService";
 import { addMember, removeMember } from "../services/boardService";
-import { getInitials } from "../utils/user";
+import { getInitials, getStoredUser } from "../utils/user";
 import { unwrapApiData } from "../services/http";
 
 
@@ -29,6 +29,13 @@ export default function Board() {
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState("");
   const [activity, setActivity] = useState([]);
+  const me = getStoredUser();
+  const myId = me?._id ? String(me._id) : "";
+  const myRole =
+    (members || []).find(
+      (m) => String(m?.user?._id || m?.user?.id || m?.user || "") === myId
+    )?.role || "viewer";
+  const canMoveCards = myRole !== "viewer";
   
   useEffect(() => {
     const fetchLists = async () => {
@@ -89,6 +96,99 @@ export default function Board() {
         }))
       );
     } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleAssignMember = async (cardId, userId) => {
+    try {
+      await updateCard(cardId, { assignedUsers: [userId] });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleUnassignMember = async (cardId, userId) => {
+    try {
+      await unassignUserFromCard(cardId, userId);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleMoveCard = async (eOrNull, info) => {
+    if (!canMoveCards) return;
+
+    // Drag start signature: (event, { cardId, sourceListId })
+    if (info?.cardId && info?.sourceListId && eOrNull?.dataTransfer) {
+      try {
+        eOrNull.dataTransfer.setData(
+          "application/json",
+          JSON.stringify({
+            cardId: String(info.cardId),
+            sourceListId: String(info.sourceListId)
+          })
+        );
+        eOrNull.dataTransfer.effectAllowed = "move";
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    // Drop signature: (event, { destinationListId })
+    const e = eOrNull;
+    const destinationListId = String(info?.destinationListId || "");
+    if (!destinationListId || !e?.dataTransfer) return;
+
+    let payload = null;
+    try {
+      payload = JSON.parse(e.dataTransfer.getData("application/json") || "null");
+    } catch {
+      payload = null;
+    }
+    if (!payload?.cardId || !payload?.sourceListId) return;
+
+    const cardId = String(payload.cardId);
+    const sourceListId = String(payload.sourceListId);
+    if (!cardId || !sourceListId) return;
+    if (sourceListId === destinationListId) return;
+
+    const snapshot = lists;
+
+    // optimistic UI: move card to bottom of destination list
+    setLists((prev) => {
+      let movingCard = null;
+      const without = prev.map((l) => {
+        if (String(l._id) !== sourceListId) return l;
+        const nextCards = (l.cards || []).filter((c) => {
+          const isTarget = String(c._id || c.id) === cardId;
+          if (isTarget) movingCard = c;
+          return !isTarget;
+        });
+        return { ...l, cards: nextCards };
+      });
+
+      if (!movingCard) return prev;
+
+      return without.map((l) => {
+        if (String(l._id) !== destinationListId) return l;
+        return { ...l, cards: [...(l.cards || []), movingCard] };
+      });
+    });
+
+    try {
+      const dest = (lists || []).find((l) => String(l._id) === destinationListId);
+      const newPosition = (dest?.cards?.length || 0) + 1; // backend expects 1-based
+
+      await moveCard({
+        cardId,
+        sourceListId,
+        destinationListId,
+        newPosition
+      });
+    } catch (err) {
+      setLists(snapshot);
       alert(err.message);
     }
   };
@@ -215,7 +315,7 @@ const handleUpdateBoard = async () => {
     if (!Array.isArray(assignedUsers) || assignedUsers.length === 0) {
       return "nobody";
     }
-
+ 
     const names = assignedUsers
       .map((u) => {
         if (u && typeof u === "object") return u.name;
@@ -304,18 +404,26 @@ useEffect(() => {
     const c = data.card;
     const cid = String(c.id || c._id);
 
+    const assignedNormalized = Array.isArray(c.assignedUsers)
+      ? c.assignedUsers.map((u) =>
+          u && typeof u === "object"
+            ? { _id: u.id || u._id, name: u.name || "Member" }
+            : { _id: u, name: "" }
+        )
+      : null;
+
     setLists((prev) =>
       prev.map((list) => ({
         ...list,
-        cards: (list.cards || []).map((x) =>
-          String(x._id || x.id) === cid
-            ? {
-                ...x,
-                title: c.title,
-                description: c.description
-              }
-            : x
-        )
+        cards: (list.cards || []).map((x) => {
+          if (String(x._id || x.id) !== cid) return x;
+          return {
+            ...x,
+            ...(c.title !== undefined ? { title: c.title } : {}),
+            ...(c.description !== undefined ? { description: c.description } : {}),
+            ...(assignedNormalized !== null ? { assignedUsers: assignedNormalized } : {})
+          };
+        })
       }))
     );
 
@@ -333,11 +441,75 @@ useEffect(() => {
   });
 
   socket.on("card:unassigned", (data) => {
-    const actor = getActorName(data);
+    const cardId = String(data?.card?.id || data?.card?.Id || "");
+    const uid = String(data?.user?.id || "");
+
+    setLists((prev) =>
+      prev.map((list) => ({
+        ...list,
+        cards: (list.cards || []).map((c) => {
+          if (String(c._id || c.id) !== cardId) return c;
+          if (Array.isArray(data.card?.assignedUsers)) {
+            return {
+              ...c,
+              assignedUsers: data.card.assignedUsers.map((u) => ({
+                _id: u.id || u._id,
+                name: u.name || "Member"
+              }))
+            };
+          }
+          return {
+            ...c,
+            assignedUsers: (c.assignedUsers || []).filter((a) => {
+              const aid =
+                typeof a === "object" ? String(a._id || a.id || "") : String(a);
+              return aid !== uid;
+            })
+          };
+        })
+      }))
+    );
+
+    const actor = data?.triggeredBy?.name || "Someone";
     const cardTitle = data?.card?.title || "Untitled";
     const removedName = data?.user?.name || "a user";
     pushActivity(
       `${actor} unassigned ${removedName} from card “${cardTitle}”`,
+      data.timestamp
+    );
+  });
+
+  socket.on("card:moved", (data) => {
+    const cardId = String(data?.card?.id || data?.card?._id || "");
+    const fromListId = String(data?.from?.listId || "");
+    const toListId = String(data?.to?.listId || "");
+    if (!cardId || !fromListId || !toListId) return;
+
+    setLists((prev) => {
+      let movingCard = null;
+      const removed = prev.map((l) => {
+        if (String(l._id) !== fromListId) return l;
+        const nextCards = (l.cards || []).filter((c) => {
+          const isTarget = String(c._id || c.id) === cardId;
+          if (isTarget) movingCard = c;
+          return !isTarget;
+        });
+        return { ...l, cards: nextCards };
+      });
+
+      if (!movingCard) return prev;
+
+      return removed.map((l) => {
+        if (String(l._id) !== toListId) return l;
+        return { ...l, cards: [...(l.cards || []), movingCard] };
+      });
+    });
+
+    const actor = getActorName(data);
+    pushActivity(
+      `${actor} moved card “${data?.card?.title || "Untitled"}” from “${
+        data?.from?.sourceTitle || "a list"
+      }” to “${data?.to?.destinationTitle || "a list"}”`,
       data.timestamp
     );
   });
@@ -421,6 +593,7 @@ useEffect(() => {
     socket.off("card:deleted");
     socket.off("card:updated");
     socket.off("card:unassigned");
+    socket.off("card:moved");
     socket.off("list:created");
     socket.off("list:deleted");
     socket.off("list:updated");
@@ -565,6 +738,11 @@ useEffect(() => {
           list={list}
           onCreateCard={handleCreateCard}
           onUpdateCard={handleUpdateCard}
+          boardMembers={members}
+          onAssignMember={handleAssignMember}
+          onUnassignMember={handleUnassignMember}
+          canDragCards={canMoveCards}
+          onMoveCard={handleMoveCard}
         />
       ))}
 

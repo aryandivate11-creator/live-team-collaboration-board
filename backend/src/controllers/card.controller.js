@@ -262,63 +262,55 @@ export const updateCard = asyncHandler(async (req, res) => {
     if (title !== undefined) card.title = title;
     if (description !== undefined) card.description = description;
 
-    // ✅ Handle assigned users
-    let assignedUsersData = [];
+    let didAssign = false;
 
-    if (assignedUsers) {
-    const boardMemberIds = board.members.map(m => m.user.toString());
+    if (hasAssign) {
+        if (!Array.isArray(assignedUsers) || assignedUsers.length === 0) {
+            throw new ApiError(400, "assignedUsers must be a non-empty array");
+        }
 
-    // ✅ 1. Check if all users are board members
-    const isValid = assignedUsers.every(
-        id => boardMemberIds.includes(id)
-    );
-
-    if (!isValid) {
-        throw new ApiError(400, "User must be a board member")
-    };
-
-    // ✅ 2. Remove duplicates from incoming request
-    const uniqueAssignedUsers = [...new Set(assignedUsers)];
-
-    // ✅ 3. Check if already assigned
-    const alreadyAssigned = uniqueAssignedUsers.filter(id =>
-        card.assignedUsers.map(u => u.toString()).includes(id)
-    );
-
-    if (alreadyAssigned.length > 0) {
-        throw new ApiError(
-            400,
-            `User(s) already assigned: ${alreadyAssigned.join(", ")}`
+        const boardMemberIds = new Set(
+            board.members.map((m) => m.user.toString())
         );
+        const ownerId = board.owner?.toString?.();
+        if (ownerId) boardMemberIds.add(ownerId);
+
+        const uniqueIncoming = [...new Set(assignedUsers.map((id) => String(id)))];
+        const isValid = uniqueIncoming.every((id) => boardMemberIds.has(id));
+
+        if (!isValid) {
+            throw new ApiError(400, "User must be a board member");
+        }
+
+        const existing = new Set(card.assignedUsers.map((u) => u.toString()));
+        const toAdd = uniqueIncoming.filter((id) => !existing.has(id));
+
+        if (toAdd.length === 0) {
+            throw new ApiError(400, "All selected users are already assigned to this card");
+        }
+
+        for (const uid of toAdd) {
+            card.assignedUsers.push(uid);
+        }
+        didAssign = true;
     }
-
-    // ✅ 4. Assign users
-    card.assignedUsers = uniqueAssignedUsers;
-
-    // 🔥 Fetch user details
-    const users = await User.find(
-        { _id: { $in: uniqueAssignedUsers } },
-        "name"
-    );
-
-    assignedUsersData = users.map(user => ({
-        id: user._id,
-        name: user.name
-    }))
-};
 
     await card.save();
 
+    const populated = await Card.findById(card._id).populate("assignedUsers", "name email");
+    const assignedPayload = populated.assignedUsers.map((u) => ({
+        id: u._id,
+        name: u.name
+    }));
+
     req.app.get("io").to(list.board.toString()).emit("card:updated", {
         card: {
-            id: card._id,
-            title: card.title,
-            description: card.description,
-            assignedUsers: assignedUsersData.length
-                ? assignedUsersData
-                : card.assignedUsers // fallback if not updated
+            id: populated._id,
+            title: populated.title,
+            description: populated.description,
+            assignedUsers: assignedPayload
         },
-        action: assignedUsers ? "assigned" : "updated",
+        action: didAssign ? "assigned" : "updated",
         user: {
             id: req.user._id,
             name: req.user.name
@@ -327,7 +319,7 @@ export const updateCard = asyncHandler(async (req, res) => {
     });
 
     return res.status(200).json(
-        new ApiResponse(200, card, "Card updated")
+        new ApiResponse(200, populated, "Card updated")
     );
 });
 
@@ -341,6 +333,7 @@ export const getCards = asyncHandler(async (req, res) => {
     const skip = (page - 1) * limit;
 
     const cards = await Card.find({ list: listId })
+        .populate("assignedUsers", "name email")
         .sort({ position: 1 })
         .skip(skip)
         .limit(limit);
@@ -375,16 +368,15 @@ export const unassignUser = asyncHandler(async (req, res) => {
     const list = await List.findById(card.list);
     const board = await Board.findById(list.board);
 
-    // ✅ Permission check
     const allowed = hasPermission(
         board,
         req.user._id,
-        ["owner", "admin"]
+        ["owner", "admin", "member"]
     );
 
     if (!allowed) {
-        throw new ApiError(403, "Not allowed")
-    };
+        throw new ApiError(403, "Not allowed");
+    }
 
     // ✅ Check if user is assigned
     const isAssigned = card.assignedUsers
@@ -406,10 +398,17 @@ export const unassignUser = asyncHandler(async (req, res) => {
     const removedUser = await User.findById(userId, "name");
 
     // 🔥 Emit event
+    const populated = await Card.findById(card._id).populate("assignedUsers", "name email");
+
     req.app.get("io").to(board._id.toString()).emit("card:unassigned", {
-        card:{
-            Id: card._id,
-            title : card.title},
+        card: {
+            id: card._id,
+            title: card.title,
+            assignedUsers: populated.assignedUsers.map((u) => ({
+                id: u._id,
+                name: u.name
+            }))
+        },
         user: {
             id: removedUser._id,
             name: removedUser.name
@@ -423,6 +422,6 @@ export const unassignUser = asyncHandler(async (req, res) => {
     });
 
     return res.status(200).json(
-        new ApiResponse(200, card, "User unassigned successfully")
+        new ApiResponse(200, populated, "User unassigned successfully")
     );
 });
