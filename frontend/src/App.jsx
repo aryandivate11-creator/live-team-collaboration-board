@@ -1,10 +1,11 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Board from "./pages/Board";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import Members from "./pages/Members";
+import Projects from "./pages/Projects";
 import MainLayout from "./layouts/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -40,11 +41,33 @@ const App = () => {
       />
 
       <Route
-        path="/members/:id"
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Projects />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/members"
         element={
           <ProtectedRoute>
             <MainLayout>
               <Members />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/members/:id"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Navigate to="/members" replace />
             </MainLayout>
           </ProtectedRoute>
         }

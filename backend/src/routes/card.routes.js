@@ -12,12 +12,13 @@ router.post("/", createCard);
 // move card (drag & drop)
 router.patch("/move", moveCard);
 
-router.delete("/:cardId",deleteCard);
+// must be before /:cardId so "unassign" is not captured as cardId
+router.patch("/:cardId/unassign", unassignUser);
 
-router.patch("/:cardId",  updateCard);
+router.delete("/:cardId", deleteCard);
 
-router.get("/list/:listId", getCards); 
+router.patch("/:cardId", updateCard);
 
-router.patch("/:cardId/unassign",unassignUser);
+router.get("/list/:listId", getCards);
 
 export default router;

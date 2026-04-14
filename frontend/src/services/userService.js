@@ -1,6 +1,6 @@
 import { createAPI } from "./http";
 
-const API = createAPI("http://localhost:5000/api/users");
+const API = createAPI("http://localhost:4000/api/users");
 
 export const searchUsers = async (query) => {
   try {

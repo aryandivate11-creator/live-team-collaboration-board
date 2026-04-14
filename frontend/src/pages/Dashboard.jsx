@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getBoards, createBoard } from "../services/boardService";
 import { useNavigate } from "react-router-dom";
+import { getStoredUser } from "../utils/user";
+import { unwrapApiData } from "../services/http";
 
 const Dashboard = () => {
   const [boards, setBoards] = useState([]);
@@ -13,8 +15,20 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchBoards = async () => {
       try {
+        const me = getStoredUser();
+        if (!me?._id) {
+          setBoards([]);
+          return;
+        }
+
         const res = await getBoards();
-        setBoards(res.data);
+        const payload = unwrapApiData(res) ?? res?.data;
+        const all = Array.isArray(payload) ? payload : [];
+
+        const myId = String(me._id);
+        const owned = all.filter((b) => String(b.owner ?? "") === myId);
+
+        setBoards(owned);
       } catch (err) {
         setError(err.message);
       }
