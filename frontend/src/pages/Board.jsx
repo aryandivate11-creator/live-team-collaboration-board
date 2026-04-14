@@ -331,11 +331,7 @@ useEffect(() => {
   const socket = connectSocket();
   socket.emit("joinBoard", id);
 
-<<<<<<< HEAD
   if (!socket) return; 
-=======
-  if (!socket) return;
->>>>>>> fa8f4b72db2c27661a53c83d95f7a95e46d46947
 
   const normalizeMember = (member) => {
     const rawUser = member?.user || {};
@@ -604,12 +600,8 @@ useEffect(() => {
     socket.off("list:updated");
     socket.off("member:added");
     socket.off("member:removed");
-<<<<<<< HEAD
     socket.emit("leaveBoard", id);
     socket.disconnect();
-=======
-    socket.off("board:updated");
->>>>>>> fa8f4b72db2c27661a53c83d95f7a95e46d46947
   };
 }, [id]);
 
