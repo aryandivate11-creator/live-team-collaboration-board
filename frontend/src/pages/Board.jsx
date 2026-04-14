@@ -79,17 +79,17 @@ const handleDeleteBoard = async () => {
   }
 };
 
-  useEffect(() => {
-  const socket = connectSocket();
+//   useEffect(() => {
+//   const socket = connectSocket();
  
-  // join board room
-  socket.emit("joinBoard", id);
+//   // join board room
+//   socket.emit("joinBoard", id);
 
-  return () => {
-    socket.emit("leaveBoard", id);
-    socket.disconnect();
-  };
-}, [id]);
+//   return () => {
+//     socket.emit("leaveBoard", id);
+//     socket.disconnect();
+//   };
+// }, [id]);
 
   useEffect(() => {
   if (!search.trim()) {
@@ -166,9 +166,10 @@ const handleUpdateBoard = async () => {
 };
 
 useEffect(() => {
-  const socket = getSocket();
+  const socket = connectSocket();
+  socket.emit("joinBoard", id);
 
-  if (!socket) return; hj
+  if (!socket) return; 
 
   const normalizeMember = (member) => {
     const rawUser = member?.user || {};
@@ -250,8 +251,10 @@ useEffect(() => {
     socket.off("list:deleted");
     socket.off("member:added");
     socket.off("member:removed");
+    socket.emit("leaveBoard", id);
+    socket.disconnect();
   };
-}, []);
+}, [id]);
 
   return (
   <div className="max-w-7xl mx-auto space-y-6">
